@@ -158,6 +158,7 @@ void splash()
   display.display();
 
   while (true) {
+    ESP.wdtFeed();//长时间循环会触发看门狗复位，因此需要喂狗
     if (digitalRead(DOWN_BUTTON) + digitalRead(UP_BUTTON) < 2) {
       break;
     }
@@ -186,12 +187,12 @@ void printScores() {
   if (rscoreCPU > 999) rscoreCPUWidth += 6 * SIZE;
   if (rscoreCPU > 9999) rscoreCPUWidth += 6 * SIZE;
 
-if(rscoreCPU-oldscoreCPU != 0|| rscoreUSER-oldscoreUSER != 0){
-  display.fillRect(20, 10,40, 10, BLACK);
-  display.fillRect(68, 10,40, 10, BLACK);
-  display.display();
-}
-  
+  if (rscoreCPU - oldscoreCPU != 0 || rscoreUSER - oldscoreUSER != 0) {
+    display.fillRect(20, 10, 40, 10, BLACK);
+    display.fillRect(68, 10, 40, 10, BLACK);
+    display.display();
+  }
+
   display.setTextColor(WHITE);
   display.setCursor(SCREEN_WIDTH / 2 - SCORE_PADDING - rscoreCPUWidth, 10);
   display.print(rscoreCPU);
@@ -200,7 +201,7 @@ if(rscoreCPU-oldscoreCPU != 0|| rscoreUSER-oldscoreUSER != 0){
 
   oldscoreCPU = rscoreCPU;
   oldscoreUSER = rscoreUSER;
-  
+
 
 
   display.display();
@@ -227,13 +228,13 @@ void SinglePlayer() {
   //    paddle_update += PADDLE_RATE;
 
   // CPU paddle
-  display.drawFastVLine(CPU_X, oldcpu_y+1, PADDLE_HEIGHT, BLACK);
-  display.drawFastVLine(CPU_X, rcpu_y+1, PADDLE_HEIGHT, WHITE);
+  display.drawFastVLine(CPU_X, oldcpu_y + 1, PADDLE_HEIGHT, BLACK);
+  display.drawFastVLine(CPU_X, rcpu_y + 1, PADDLE_HEIGHT, WHITE);
   oldcpu_y = rcpu_y;
 
   // Player paddle
-  display.drawFastVLine(PLAYER_X, oldplayer_y+1, PADDLE_HEIGHT, BLACK);
-  display.drawFastVLine(PLAYER_X, rplayer_y+1, PADDLE_HEIGHT, WHITE);
+  display.drawFastVLine(PLAYER_X, oldplayer_y + 1, PADDLE_HEIGHT, BLACK);
+  display.drawFastVLine(PLAYER_X, rplayer_y + 1, PADDLE_HEIGHT, WHITE);
   oldplayer_y = rplayer_y;
 
   //    update = true;

@@ -93,7 +93,9 @@ void splash()
 
   display.display();
 
+
   while (true) {
+    ESP.wdtFeed();//长时间循环会触发看门狗复位，因此需要喂狗
     if (digitalRead(DOWN_BUTTON) + digitalRead(UP_BUTTON) < 2) {
       break;
     }
@@ -101,6 +103,7 @@ void splash()
   }
 
   // soundStart();
+ 
 }
 
 void centerPrint(char *text, int y, int size)
