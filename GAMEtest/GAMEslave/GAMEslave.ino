@@ -261,32 +261,45 @@ void getmasterdata() {
   int packetSize = Udp.parsePacket();//获得解析包
   if (packetSize)//解析包不为空
   {
+   
     //收到Udp数据包
     //Udp.remoteIP().toString().c_str()用于将获取的远端IP地址转化为字符串
     //Serial.printf("收到来自远程IP：%s（远程端口：%d）的数据包字节数：%d\n", Udp.remoteIP().toString().c_str(), Udp.remotePort(), packetSize);
     // 读取Udp数据包并存放在incomingPacket
     int len = Udp.read(incomingPacket, 30);//返回数据包字节数
+   
     if (len > 0)
     {
+      
       incomingPacket[len] = 0;//清空缓存
-
       oneLine = incomingPacket;
+ 
       Split();//拆分master发来的信息
+      
     }
   }
 }
 
 ////拆分master发来的字符串////
 void Split() {
+  
   int masterdata[8], r = 0, t = 0;
+  
   for (int i = 0; i < oneLine.length(); i++)
   {
+     /*if (oneLine.charAt(i) == '.')
+     {
+      break;
+      }
+      */
     if (oneLine.charAt(i) == ';')
-    {
+   
+    { 
       masterdata[t] = oneLine.substring(r, i).toInt();
       r = (i + 1);
       t++;
     }
+    
   }
   rstate = masterdata[0];
   rclearall = masterdata[1];
