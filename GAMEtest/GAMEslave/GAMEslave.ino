@@ -50,6 +50,7 @@ unsigned int localUdpPort = 4321;  // 自定义本地监听端口
 unsigned int remoteUdpPort = 1234;  // 自定义远程监听端口
 char incomingPacket[30];  // 保存Udp工具发过来的消息
 
+
 void Split();
 void send();
 void getmasterdata();
