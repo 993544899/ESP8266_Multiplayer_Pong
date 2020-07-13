@@ -6,7 +6,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 
-#define ssid      "LBm"       //这里改成你的设备当前环境下WIFI名字
+#define ssid      "master"       //这里改成你的设备当前环境下WIFI名字
 #define password  "11111111"     //这里改成你的设备当前环境下WIFI密码
 
 #define UP_BUTTON 14//GOIO14=D5
