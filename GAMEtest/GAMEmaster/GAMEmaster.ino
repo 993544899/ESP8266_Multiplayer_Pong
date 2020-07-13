@@ -53,7 +53,7 @@ unsigned int localUdpPort = 1234;  // 自定义本地监听端口
 unsigned int remoteUdpPort = 4321;  // 自定义远程监听端口
 char incomingPacket[4];  // 保存Udp工具发过来的消息
 
-char smessage[30];
+char char_array[30];
 
 uint8_t ball_x = 64, ball_y = 32;
 uint8_t ball_x0 = 64, ball_y0 = 32;
@@ -145,9 +145,8 @@ void loop() {
   SinglePlayer();
   line();
   tochar();
-  send(smessage);
-   Serial.println(oneLine);
- // Serial.println(smessage);
+  send(char_array);
+
 
 
 
@@ -319,7 +318,7 @@ void SinglePlayer() {
       cpu_y += 2;
     }
     sup_state = sdown_state = false;
-    if (cpu_y < 1) cpu_y = 1;
+    if (cpu_y < 2) cpu_y = 2;
     if (cpu_y + PADDLE_HEIGHT > 63) cpu_y = 63 - PADDLE_HEIGHT;
     scpu_y = cpu_y;
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, WHITE);
@@ -416,12 +415,13 @@ void line() {
 
 void tochar() {
 
-  // Length (with one extra character for the null terminator)
-  int oneLine_len = oneLine.length() + 1;
-
-  // Prepare the character array (the buffer)
-  char smessage[oneLine_len];
-
-  // Copy it over
-  oneLine.toCharArray(smessage, oneLine_len);
+  String str = oneLine; 
+ // Serial.println("字符串为：");
+  //Serial.println(oneLine);
+int str_len = str.length() + 1; 
+char char_array[str_len];
+str.toCharArray(char_array, str_len);
+ // Serial.println("转换后为：");
+  //Serial.println(char_array);
+  send(char_array);
 }

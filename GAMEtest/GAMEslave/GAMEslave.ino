@@ -7,6 +7,7 @@
 #include <WiFiUdp.h>
 
 #define ssid      "mastergame"       //这里改成你的设备当前环境下WIFI名字
+//#define ssid      "LBm"       //这里改成你的设备当前环境下WIFI名字
 #define password  "11111111"     //这里改成你的设备当前环境下WIFI密码
 
 #define UP_BUTTON 14//GOIO14=D5
@@ -265,7 +266,7 @@ void getmasterdata() {
 
     //收到Udp数据包
     //Udp.remoteIP().toString().c_str()用于将获取的远端IP地址转化为字符串
-    //Serial.printf("收到来自远程IP：%s（远程端口：%d）的数据包字节数：%d\n", Udp.remoteIP().toString().c_str(), Udp.remotePort(), packetSize);
+  //  Serial.printf("收到来自远程IP：%s（远程端口：%d）的数据包字节数：%d\n", Udp.remoteIP().toString().c_str(), Udp.remotePort(), packetSize);
     // 读取Udp数据包并存放在incomingPacket
     int len = Udp.read(incomingPacket, 30);//返回数据包字节数
 
@@ -273,6 +274,7 @@ void getmasterdata() {
     {
 
       incomingPacket[len] = 0;//清空缓存
+   //        Serial.printf("UDP数据包内容为: %s\n", incomingPacket);//向串口打印信息
       oneLine = incomingPacket;
 
       Split();//拆分master发来的信息
@@ -310,7 +312,7 @@ void Split() {
   rplayer_y = masterdata[5];
   rscoreCPU = masterdata[6];
   rscoreUSER = masterdata[7];
-  /*
+ /* 
     Serial.println(rstate);
     Serial.println(rclearall);
     Serial.println(rball_x);
