@@ -8,23 +8,20 @@
 #include <Ticker.h>
 //////////////////////////////
 
-////作为AP_master需要的参数////
-#define AP_ssid   "master" //这里改成你的设备当前环境下接入点名字
-#define password  "11111111"          //这里改成你的设备当前环境下接入点密码
-IPAddress local_IP(192, 168, 1, 14); //手动设置的开启的网络的ip地址
-IPAddress gateway(192, 168, 4, 9); //手动设置的网关IP地址
-IPAddress subnet(255, 255, 255, 0); //手动设置的子网掩码
+////作为STA_slave需要的参数////
+#define ssid      "master"       //这里改成你的设备当前环境下WIFI名字
+#define password  "11111111"     //这里改成你的设备当前环境下WIFI密码
 //////////////////////////////
 
 ///////UDP传输相关参数////////
 WiFiUDP Udp;//实例化WiFiUDP对象
-unsigned int localUdpPort = 1234;  // 自定义本地监听端口
-unsigned int remoteUdpPort = 4321;  // 自定义远程监听端口
-char incomingPacket[3];  // 保存slave机发过来start的消息
+unsigned int localUdpPort = 4321;  // 自定义本地监听端口
+unsigned int remoteUdpPort = 1234;  // 自定义远程监听端口
 int slavepad = 16;
 int masterpad = 16;
 Ticker changedata;
 //////////////////////////////
+
 
 //////游戏运行的各项参数///////
 uint8_t ball_x = 64, ball_y = 32;
@@ -43,6 +40,9 @@ int scoreCPU = 0;
 int scoreUSER = 0;
 int startflag = 0;
 int keyflag = 0;
+//int end_x = 0;
+uint8_t new_x = 1;
+uint8_t new_y = 1;
 //////////////////////////////
 
 /////////按键引脚定义/////////
@@ -70,6 +70,8 @@ void UDPsend();
 void gamestart();
 void tochar();
 void change();
+void wifiSTAconnect();
+//void gamerestart();
 //////////////////////////////
 
 void setup() {
@@ -85,7 +87,7 @@ void setup() {
   digitalWrite(DOWN_BUTTON, 1);
 
   splash();//开机初始化界面
-  wifiAPconnect();//作为master的接入点初始化
+  wifiSTAconnect();//作为slave的无线终端初始化
   UDPsetup();//UDP链接初始化
   gamestart();//确认开始游戏界面
   changedata.attach(0.01, change);
@@ -100,6 +102,7 @@ void setup() {
 void loop() {
 
   SinglePlayer();
+
 }
 
 //
@@ -146,10 +149,10 @@ void centerPrint(char *text, int y, int size)
 
 void printScores() {
 
-  //打印分数
+  //print scores
   int SIZE = 2;
   int SCORE_PADDING = 10;
-  //以电脑的分数位置为基准，修改整体宽度
+  //backwards indent score CPU. This is dirty, but it works ... ;)
   int scoreCPUWidth = 5 * SIZE;
   if (scoreCPU > 9) scoreCPUWidth += 6 * SIZE;
   if (scoreCPU > 99) scoreCPUWidth += 6 * SIZE;
@@ -157,11 +160,14 @@ void printScores() {
   if (scoreCPU > 9999) scoreCPUWidth += 6 * SIZE;
   display.setTextColor(WHITE);
   display.setCursor(SCREEN_WIDTH / 2 - SCORE_PADDING - scoreCPUWidth, 10);
-  display.print(scoreCPU);
-  display.setCursor(SCREEN_WIDTH / 2 + SCORE_PADDING + 2, 10); //+1 because of dotted line.
   display.print(scoreUSER);
+  display.setCursor(SCREEN_WIDTH / 2 + SCORE_PADDING + 2, 10); //+1 because of dotted line.
+  display.print(scoreCPU);
   display.display();
 }
+
+
+
 
 
 void SinglePlayer() {
@@ -177,14 +183,18 @@ void SinglePlayer() {
   down_state |= (digitalRead(DOWN_BUTTON) == LOW);
 
   if (time > ball_update) {
-    uint8_t new_x = ball_x + ball_dir_x;
-    uint8_t new_y = ball_y + ball_dir_y;
+    //  uint8_t new_x = ball_x + ball_dir_x;
+    //  uint8_t new_y = ball_y + ball_dir_y;
+
+    new_x = ball_x + ball_dir_x;
+    new_y = ball_y + ball_dir_y;
 
     // 如果球撞到电脑的墙
     if (new_x == 0) {
+  //    UDPsend("0");
       display.clearDisplay();
       drawCourt();
-      scoreUSER++;
+      scoreCPU++;
       printScores();
       delay(1000);
       new_x = ball_x0 + ball_dir_x;
@@ -194,9 +204,10 @@ void SinglePlayer() {
 
     // 如果球撞到玩家的墙
     if (new_x == 127) {
+   //   UDPsend("0");
       display.clearDisplay();
       drawCourt();
-      scoreCPU++;
+      scoreUSER++;
       printScores();
       delay(1000);
       new_x = ball_x0 + ball_dir_x;
@@ -232,33 +243,35 @@ void SinglePlayer() {
     display.drawPixel(new_x, new_y, WHITE);
     ball_x = new_x;
     ball_y = new_y;
-
+ //   end_x = new_x;
     ball_update += BALL_RATE;
 
     update = true;
   }
+
   if (time > paddle_update) {
     paddle_update += PADDLE_RATE;
 
     // CPU paddle
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, BLACK);
     const uint8_t half_paddle = PADDLE_HEIGHT >> 1;
-    cpu_y = slavepad;
+    if (up_state) {
+      cpu_y -= 1;
+    }
+    if (down_state) {
+      cpu_y += 1;
+    }
+    up_state = down_state = false;
     if (cpu_y < 1) cpu_y = 1;
     if (cpu_y + PADDLE_HEIGHT > 63) cpu_y = 63 - PADDLE_HEIGHT;
+    slavepad = cpu_y;
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, WHITE);
 
     // Player paddle
     display.drawFastVLine(PLAYER_X, player_y, PADDLE_HEIGHT, BLACK);
-    if (up_state) {
-      player_y -= 1;
-    }
-    if (down_state) {
-      player_y += 1;
-    }
+    player_y = masterpad;
     up_state = down_state = false;
     if (player_y < 1) player_y = 1;
-    masterpad = player_y;
     if (player_y + PADDLE_HEIGHT > 63) player_y = 63 - PADDLE_HEIGHT;
     display.drawFastVLine(PLAYER_X, player_y, PADDLE_HEIGHT, WHITE);
 
@@ -270,28 +283,20 @@ void SinglePlayer() {
 
 }
 
-////作为master机AP点的wifi初始化
-void wifiAPconnect() {
-  ////wifiAP模式初始化////
-  WiFi.mode(WIFI_AP);
-  //启动AP，并设置账号和密码
-  Serial.printf("设置接入点中 ... ");
-  //配置接入点的IP，网关IP，子网掩码
-  WiFi.softAPConfig(local_IP, gateway, subnet);
-  //启动校验式网络（需要输入账号密码的网络）
-  WiFi.softAP(AP_ssid, password);
-
-  while (WiFi.softAPgetStationNum() != 1) //等待连接
+void wifiSTAconnect() {
+  ////wifiSTA模式初始化和连接////
+  Serial.printf("正在连接 %s ", ssid);
+  WiFi.begin(ssid, password);//连接到wifi
+  while (WiFi.status() != WL_CONNECTED)//等待连接
   {
     delay(500);
     Serial.print(".");
     display.setTextColor(WHITE);
-    centerPrint("Waiting for ", 24, 1);
-    centerPrint("connection...", 33, 1);
+    centerPrint("Connecting...", 24, 1);
     display.display();
   }
   display.clearDisplay();
-  Serial.println("wifi连接成功");
+  Serial.println("连接成功");
 }
 
 ////UDP监听服务初始化////
@@ -354,7 +359,7 @@ void UDPgetstart() {
 ////解析游戏运行的Udp数据包////
 void UDPgetdata() {
   char padmessage[3];  // slave的球拍位置
-String message;
+  String message;
   int packetSize = Udp.parsePacket();//获得解析包
   if (packetSize)//解析包不为空
   {
@@ -364,7 +369,10 @@ String message;
     {
       padmessage[len] = 0;//清空缓存
       message = padmessage;
-      slavepad = message.toInt();
+      masterpad = message.toInt();
+//      if (masterpad == 0) {
+//        gamerestart();
+//      }
     }
   }
 }
@@ -372,21 +380,21 @@ String message;
 ////开始游戏的触发函数////
 void gamestart() {
 
-  while (keyflag + startflag < 2) //等待master和slave确认游戏开始
+  while (keyflag == 0) //等待master和slave确认游戏开始
   {
     if (digitalRead(UP_BUTTON) == LOW || digitalRead(DOWN_BUTTON) == LOW) {
       UDPsend("start");
       keyflag = 1;
     }
-    UDPgetstart();
+    // UDPgetstart();
     display.setTextColor(WHITE);
     centerPrint("PRESS KEY TO START", 24, 1);
     centerPrint("Ready?", 33, 1);
     display.display();
-    Serial.println("keyflag");
-    Serial.println(keyflag);
-    Serial.println("startflag");
-    Serial.println(startflag);
+    // Serial.println("keyflag");
+    // Serial.println(keyflag);
+    // Serial.println("startflag");
+    // Serial.println(startflag);
   }
   display.clearDisplay();
   Serial.println("游戏开始");
@@ -394,7 +402,7 @@ void gamestart() {
 
 void tochar() {
   String str;
-  str = masterpad;
+  str = slavepad;
   int str_len = str.length() + 1;
   char char_array[str_len];
   str.toCharArray(char_array, str_len);
@@ -404,5 +412,19 @@ void tochar() {
 void change() {
   tochar();
   UDPgetdata();
-
 }
+/*
+  void gamerestart() {
+  display.clearDisplay();
+  drawCourt();
+  if (end_x < 64) {
+    scoreCPU++;
+  }
+  else {
+    scoreUSER++;
+  }
+  printScores();
+  delay(1000);
+  new_x = ball_x0 + ball_dir_x;
+  new_y = ball_y0 + ball_dir_y;
+  }*/
