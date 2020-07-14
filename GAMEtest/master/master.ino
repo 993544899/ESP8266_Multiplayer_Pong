@@ -5,14 +5,15 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Ticker.h>
 //////////////////////////////
 
 ////作为AP_master需要的参数////
 #define AP_ssid   "master" //这里改成你的设备当前环境下接入点名字
 #define password  "11111111"          //这里改成你的设备当前环境下接入点密码
-IPAddress local_IP(192,168,1,14);//手动设置的开启的网络的ip地址
-IPAddress gateway(192,168,4,9);  //手动设置的网关IP地址
-IPAddress subnet(255,255,255,0); //手动设置的子网掩码
+IPAddress local_IP(192, 168, 1, 14); //手动设置的开启的网络的ip地址
+IPAddress gateway(192, 168, 4, 9); //手动设置的网关IP地址
+IPAddress subnet(255, 255, 255, 0); //手动设置的子网掩码
 //////////////////////////////
 
 ///////UDP传输相关参数////////
@@ -20,6 +21,9 @@ WiFiUDP Udp;//实例化WiFiUDP对象
 unsigned int localUdpPort = 1234;  // 自定义本地监听端口
 unsigned int remoteUdpPort = 4321;  // 自定义远程监听端口
 char incomingPacket[3];  // 保存slave机发过来start的消息
+int slavepad = 16;
+int masterpad = 16;
+Ticker changedata;
 //////////////////////////////
 
 //////游戏运行的各项参数///////
@@ -38,6 +42,7 @@ const uint8_t PADDLE_HEIGHT = 24;
 int scoreCPU = 0;
 int scoreUSER = 0;
 int startflag = 0;
+int keyflag = 0;
 //////////////////////////////
 
 /////////按键引脚定义/////////
@@ -60,15 +65,17 @@ void printScreen();
 void SinglePlayer();
 void UDPsetup();
 void UDPgetstart();
+void UDPgetdata();
 void UDPsend();
 void gamestart();
+void tochar();
+void change();
 //////////////////////////////
 
 void setup() {
   ////串口初始化////
   Serial.begin(115200);//打开串口
   Serial.println();
-  
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);//使用I2C地址0x3C初始化（对于128x64）
   display.clearDisplay();
   unsigned long start = millis();
@@ -81,7 +88,7 @@ void setup() {
   wifiAPconnect();//作为master的接入点初始化
   UDPsetup();//UDP链接初始化
   gamestart();//确认开始游戏界面
-  
+  changedata.attach(0.01, change);
   drawCourt();//画球场的框线
   printScores();//屏幕显示分数
 
@@ -93,7 +100,6 @@ void setup() {
 void loop() {
 
   SinglePlayer();
-
 }
 
 //
@@ -237,12 +243,7 @@ void SinglePlayer() {
     // CPU paddle
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, BLACK);
     const uint8_t half_paddle = PADDLE_HEIGHT >> 1;
-    if (cpu_y + half_paddle > ball_y) {
-      cpu_y -= 1;
-    }
-    if (cpu_y + half_paddle < ball_y) {
-      cpu_y += 1;
-    }
+    cpu_y = slavepad;
     if (cpu_y < 1) cpu_y = 1;
     if (cpu_y + PADDLE_HEIGHT > 63) cpu_y = 63 - PADDLE_HEIGHT;
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, WHITE);
@@ -257,6 +258,7 @@ void SinglePlayer() {
     }
     up_state = down_state = false;
     if (player_y < 1) player_y = 1;
+    masterpad = player_y;
     if (player_y + PADDLE_HEIGHT > 63) player_y = 63 - PADDLE_HEIGHT;
     display.drawFastVLine(PLAYER_X, player_y, PADDLE_HEIGHT, WHITE);
 
@@ -305,14 +307,16 @@ void UDPsetup() {
 }
 
 ////udp发送消息////
-void UDPsend(const char *buffer)
+void UDPsend(char *buffer)
 {
   Udp.beginPacket(Udp.remoteIP(), remoteUdpPort);//配置远端ip地址和端口
   Udp.write(buffer); //把数据写入发送缓冲区
   Udp.endPacket(); //发送数据
-   Serial.printf("本机IP：%s", WiFi.localIP().toString().c_str());
- Serial.printf("发送给远程IP：%s", Udp.remoteIP().toString().c_str());
+  //  Serial.printf("本机IP：%s", WiFi.localIP().toString().c_str());
+  //Serial.printf("发送给远程IP：%s", Udp.remoteIP().toString().c_str());
 }
+
+
 
 ////解析游戏开始的Udp数据包////
 void UDPgetstart() {
@@ -347,21 +351,58 @@ void UDPgetstart() {
   }
 }
 
+////解析游戏运行的Udp数据包////
+void UDPgetdata() {
+  char padmessage[3];  // slave的球拍位置
+String message;
+  int packetSize = Udp.parsePacket();//获得解析包
+  if (packetSize)//解析包不为空
+  {
+    // 读取Udp数据包并存放在startmessage
+    int len = Udp.read(padmessage, 5);//返回数据包字节数
+    if (len > 0)
+    {
+      padmessage[len] = 0;//清空缓存
+      message = padmessage;
+      slavepad = message.toInt();
+    }
+  }
+}
+
 ////开始游戏的触发函数////
 void gamestart() {
-  int start = 0;
-  while (start != 1 && startflag != 1) //等待master和slave确认游戏开始
+
+  while (keyflag + startflag < 2) //等待master和slave确认游戏开始
   {
     if (digitalRead(UP_BUTTON) == LOW || digitalRead(DOWN_BUTTON) == LOW) {
-      int start = 1;
       UDPsend("start");
+      keyflag = 1;
     }
     UDPgetstart();
     display.setTextColor(WHITE);
     centerPrint("PRESS KEY TO START", 24, 1);
     centerPrint("Ready?", 33, 1);
     display.display();
+    Serial.println("keyflag");
+    Serial.println(keyflag);
+    Serial.println("startflag");
+    Serial.println(startflag);
   }
   display.clearDisplay();
   Serial.println("游戏开始");
+}
+
+void tochar() {
+  String str;
+  str = masterpad;
+  int str_len = str.length() + 1;
+  char char_array[str_len];
+  str.toCharArray(char_array, str_len);
+  UDPsend(char_array);
+}
+
+void change() {
+  tochar();
+  UDPgetdata();
+
 }
