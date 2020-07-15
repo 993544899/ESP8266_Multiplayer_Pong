@@ -1,6 +1,6 @@
 # ESP8266_Multiplayer_Pong
 
-<div align="center"><img width="100%" src="imgs/overview1.png"> </div>
+<div align="center"><img width="100%" src="imgs/pongtitle.jpg"> </div>
 
 基于ESP8266的网络多人乒乓游戏 / Multiplayer Pong Game based on ESP8266 Network
 
