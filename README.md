@@ -2,7 +2,9 @@
 
 <div align="center"><img width="100%" src="imgs/pongtitle.jpg"> </div>
 
-基于ESP8266的网络多人乒乓游戏 / Multiplayer Pong Game based on ESP8266 Network
+### 总览
+
+基于ESP8266的网络多人乒乓游戏 / Multiplayer Pong Game based on ESP8266 Network是一个基于wifi，使用UDP协议进行数据传输的双人对战游戏。双方准备好后按下按键即可开始游戏。内置的游戏是一个简单的PONG(乒乓)游戏，有判断胜负的逻辑和计分的功能。硬件仅使用0.96寸，支持I2C协议的oled和ESP8266-NodeMCU开发板，以及按键开关组成。
 
 
 
@@ -46,10 +48,4 @@
 ### 更多信息
 
 这个小制作只是展示了8266网络对战的效果，用到的物联网相关应用知识并不困难。如果您想学习更多物联网开发相关知识，请访问[太极创客官网](http://www.taichi-maker.com/)获取更多教程。
-
-
-
-
-
-
 
