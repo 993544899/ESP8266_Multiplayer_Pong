@@ -11,6 +11,8 @@
 ////作为STA_slave需要的参数////
 #define ssid      "master"       //这里改成你的设备当前环境下WIFI名字
 #define password  "11111111"     //这里改成你的设备当前环境下WIFI密码
+IPAddress master_IP(192, 168, 1, 14); //master机子接入点的ip地址
+
 //////////////////////////////
 
 ///////UDP传输相关参数////////
@@ -85,12 +87,12 @@ void setup() {
   pinMode(DOWN_BUTTON, INPUT_PULLUP);
   digitalWrite(UP_BUTTON, 1);
   digitalWrite(DOWN_BUTTON, 1);
-
+  UDPsetup();//UDP链接初始化
+  changedata.attach(0.02, change);
   splash();//开机初始化界面
   wifiSTAconnect();//作为slave的无线终端初始化
-  UDPsetup();//UDP链接初始化
   gamestart();//确认开始游戏界面
-  changedata.attach(0.01, change);
+  // changedata.attach(0.01, change);
   drawCourt();//画球场的框线
   printScores();//屏幕显示分数
 
@@ -191,7 +193,7 @@ void SinglePlayer() {
 
     // 如果球撞到电脑的墙
     if (new_x == 0) {
-  //    UDPsend("0");
+      //    UDPsend("0");
       display.clearDisplay();
       drawCourt();
       scoreCPU++;
@@ -204,7 +206,7 @@ void SinglePlayer() {
 
     // 如果球撞到玩家的墙
     if (new_x == 127) {
-   //   UDPsend("0");
+      //   UDPsend("0");
       display.clearDisplay();
       drawCourt();
       scoreUSER++;
@@ -243,7 +245,7 @@ void SinglePlayer() {
     display.drawPixel(new_x, new_y, WHITE);
     ball_x = new_x;
     ball_y = new_y;
- //   end_x = new_x;
+    //   end_x = new_x;
     ball_update += BALL_RATE;
 
     update = true;
@@ -295,6 +297,7 @@ void wifiSTAconnect() {
     centerPrint("Connecting...", 24, 1);
     display.display();
   }
+  //delay(500);
   display.clearDisplay();
   Serial.println("连接成功");
 }
@@ -305,7 +308,7 @@ void UDPsetup() {
     Serial.println("监听成功");
     //打印本地的ip地址，在UDP工具中会使用到
     //WiFi.localIP().toString().c_str()用于将获取的本地IP地址转化为字符串
-    Serial.printf("现在监听本地IP：%s, 本地UDP端口：%d\n", WiFi.softAPIP().toString().c_str(), localUdpPort);
+    Serial.printf("现在监听本地IP：%s, 本地UDP端口：%d\n", WiFi.localIP().toString().c_str(), localUdpPort);
   } else {
     Serial.println("监听失败");
   }
@@ -314,7 +317,7 @@ void UDPsetup() {
 ////udp发送消息////
 void UDPsend(char *buffer)
 {
-  Udp.beginPacket(Udp.remoteIP(), remoteUdpPort);//配置远端ip地址和端口
+  Udp.beginPacket(master_IP, remoteUdpPort);//配置远端ip地址和端口
   Udp.write(buffer); //把数据写入发送缓冲区
   Udp.endPacket(); //发送数据
   //  Serial.printf("本机IP：%s", WiFi.localIP().toString().c_str());
@@ -331,14 +334,14 @@ void UDPgetstart() {
   {
     //收到Udp数据包
     //Udp.remoteIP().toString().c_str()用于将获取的远端IP地址转化为字符串
-    Serial.printf("收到来自远程IP：%s（远程端口：%d）的数据包字节数：%d\n", Udp.remoteIP().toString().c_str(), Udp.remotePort(), packetSize);
+  //  Serial.printf("收到来自远程IP：%s（远程端口：%d）的数据包字节数：%d\n", Udp.remoteIP().toString().c_str(), Udp.remotePort(), packetSize);
 
     // 读取Udp数据包并存放在startmessage
     int len = Udp.read(startmessage, 5);//返回数据包字节数
     if (len > 0)
     {
       startmessage[len] = 0;//清空缓存
-      Serial.printf("UDP数据包内容为: %s\n", startmessage);//向串口打印信息
+   //   Serial.printf("UDP数据包内容为: %s\n", startmessage);//向串口打印信息
 
       //strcmp函数是string compare(字符串比较)的缩写，用于比较两个字符串并根据比较结果返回整数。
       //基本形式为strcmp(str1,str2)，若str1=str2，则返回零；若str1<str2，则返回负数；若str1>str2，则返回正数。
@@ -370,9 +373,9 @@ void UDPgetdata() {
       padmessage[len] = 0;//清空缓存
       message = padmessage;
       masterpad = message.toInt();
-//      if (masterpad == 0) {
-//        gamerestart();
-//      }
+      //      if (masterpad == 0) {
+      //        gamerestart();
+      //      }
     }
   }
 }
@@ -380,22 +383,32 @@ void UDPgetdata() {
 ////开始游戏的触发函数////
 void gamestart() {
 
-  while (keyflag == 0) //等待master和slave确认游戏开始
+  while (keyflag + startflag  < 2) //等待master和slave确认游戏开始
   {
-    if (digitalRead(UP_BUTTON) == LOW || digitalRead(DOWN_BUTTON) == LOW) {
-      UDPsend("start");
+    if (digitalRead(UP_BUTTON) == LOW || digitalRead(DOWN_BUTTON) == LOW) {        
+     UDPsend("start");
       keyflag = 1;
     }
-    // UDPgetstart();
+    UDPgetstart();
     display.setTextColor(WHITE);
     centerPrint("PRESS KEY TO START", 24, 1);
     centerPrint("Ready?", 33, 1);
     display.display();
-    // Serial.println("keyflag");
-    // Serial.println(keyflag);
-    // Serial.println("startflag");
-    // Serial.println(startflag);
+
+/*
+     Serial.println("keyflag");
+     Serial.println(keyflag);
+     Serial.println("startflag");
+    Serial.println(startflag);
+    */
   }
+  
+  UDPsend("start");
+  UDPsend("start");
+  UDPsend("start");
+  UDPsend("start");
+  UDPsend("start");
+  
   display.clearDisplay();
   Serial.println("游戏开始");
 }
