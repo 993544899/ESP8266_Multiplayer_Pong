@@ -1,6 +1,6 @@
 
 /*
-  A simple Pong game:
+  单人游戏
 */
 
 #include <SPI.h>
