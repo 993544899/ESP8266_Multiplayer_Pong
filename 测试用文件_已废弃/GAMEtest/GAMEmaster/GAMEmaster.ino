@@ -1,8 +1,28 @@
-
-/*
-  A simple Pong game:
-*/
-
+/**********************************************************************
+  项目名称/Project          : 【已废弃】
+  程序名称/Program name     : 【已废弃】
+  团队/Team                 : 太极创客团队 / Taichi-Maker (www.taichi-maker.com)
+  作者/Author               : Blackbox114
+  日期/Date（YYYYMMDD）     : 20200714
+  程序目的/Purpose          :
+  实现pong的联机游戏游戏【已废弃，未使用定时器，卡顿严重，数据传输不稳定】
+  使用的第三方库/Library
+  Adafruit_GFX库
+  Adafruit_SSD1306库
+  下载请前往
+  http://www.taichi-maker.com/homepage/download/#library-download
+  -----------------------------------------------------------------------
+  接线说明：：
+  D1(8266)<------------>SCL(oled)
+  D2(8266)<------------>SDA(oled)
+  D5(8266)<------------>按键UP引脚
+  D6(8266)<------------>按键DOWN引脚
+  3V3(8266)<----------->VCC(oled)
+  GND(8266)<----------->GND(oled)
+  备注：使用的两个按键另一端均为接地（GND）
+  具体链接请参照接线图
+***********************************************************************/
+/*代码只实现了功能，并未做优化和封装，有bug！*/
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
