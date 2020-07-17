@@ -45,9 +45,9 @@ IPAddress master_IP(192, 168, 1, 14); //master机子接入点的ip地址
 WiFiUDP Udp;//实例化WiFiUDP对象
 unsigned int localUdpPort = 4321;  // 自定义本地监听端口
 unsigned int remoteUdpPort = 1234;  // 自定义远程监听端口
-int slavepad = 16;
-int masterpad = 16;
-Ticker changedata;
+int slavepad = 16;  //slave机的球拍位置
+int masterpad = 16; //master机的球拍位置
+Ticker changedata;//实例化一个定时器对象
 //////////////////////////////
 
 
@@ -87,18 +87,18 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 //////////////////////////////
 
 ///////初始化使用的函数////////
-void drawCourt();
-void splash();
-void printScreen();
-void SinglePlayer();
-void UDPsetup();
-void UDPgetstart();
-void UDPgetdata();
-void UDPsend();
-void gamestart();
-void tochar();
-void change();
-void wifiSTAconnect();
+void drawCourt();;//画出球场
+void splash();//初始界面
+void printScreen();//打印双方分数
+void Multiplayer();//游戏主函数。多人联机是由单人游戏扩展而来。单人游戏文件可在github测试用文件中找到
+void UDPsetup();//初始化UDP链接
+void UDPgetstart();//初始化UDP链接
+void UDPgetdata();//接受和发送游戏进行时传输的数据
+void UDPsend();//UDP发送信息函数
+void gamestart();//确定游戏开始的函数
+void tochar();//进行数值和字符串转换并发送的函数
+void change();//交换数据的函数。此函数包含tochar()和UDPgetdata()
+void wifiSTAconnect();//作为slave机的AP热点开启初始化
 //void gamerestart();
 //////////////////////////////
 
@@ -109,16 +109,15 @@ void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);//使用I2C地址0x3C初始化（对于128x64）
   display.clearDisplay();
   unsigned long start = millis();
-  pinMode(UP_BUTTON, INPUT_PULLUP);
+  pinMode(UP_BUTTON, INPUT_PULLUP);//按键初始化为上拉输入
   pinMode(DOWN_BUTTON, INPUT_PULLUP);
   digitalWrite(UP_BUTTON, 1);
   digitalWrite(DOWN_BUTTON, 1);
   UDPsetup();//UDP链接初始化
-  changedata.attach(0.02, change);
+  changedata.attach(0.02, change);//开启定时器，每0.02秒就同步一次数据
   splash();//开机初始化界面
   wifiSTAconnect();//作为slave的无线终端初始化
   gamestart();//确认开始游戏界面
-  // changedata.attach(0.01, change);
   drawCourt();//画球场的框线
   printScores();//屏幕显示分数
 
@@ -129,7 +128,7 @@ void setup() {
 
 void loop() {
 
-  SinglePlayer();
+  Multiplayer();
 
 }
 
@@ -180,12 +179,10 @@ void printScores() {
   //print scores
   int SIZE = 2;
   int SCORE_PADDING = 10;
-  //backwards indent score CPU. This is dirty, but it works ... ;)
+  //以分数位置为基准，修改整体宽度
   int scoreCPUWidth = 5 * SIZE;
   if (scoreCPU > 9) scoreCPUWidth += 6 * SIZE;
   if (scoreCPU > 99) scoreCPUWidth += 6 * SIZE;
-  if (scoreCPU > 999) scoreCPUWidth += 6 * SIZE;
-  if (scoreCPU > 9999) scoreCPUWidth += 6 * SIZE;
   display.setTextColor(WHITE);
   display.setCursor(SCREEN_WIDTH / 2 - SCORE_PADDING - scoreCPUWidth, 10);
   display.print(scoreUSER);
@@ -194,13 +191,7 @@ void printScores() {
   display.display();
 }
 
-
-
-
-
-void SinglePlayer() {
-
-
+void Multiplayer() {
   bool update = false;
   unsigned long time = millis();
 
@@ -217,7 +208,7 @@ void SinglePlayer() {
     new_x = ball_x + ball_dir_x;
     new_y = ball_y + ball_dir_y;
 
-    // 如果球撞到电脑的墙
+    // 如果球撞到本机玩家的墙
     if (new_x == 0) {
       //    UDPsend("0");
       display.clearDisplay();
@@ -230,7 +221,7 @@ void SinglePlayer() {
 
     }
 
-    // 如果球撞到玩家的墙
+    // 如果球撞到master玩家的墙
     if (new_x == 127) {
       //   UDPsend("0");
       display.clearDisplay();
@@ -252,13 +243,13 @@ void SinglePlayer() {
 
     }
 
-    //如果球撞到电脑的拍子上
+    //如果球撞到本机玩家的拍子上
     if (new_x == CPU_X && new_y >= cpu_y && new_y <= cpu_y + PADDLE_HEIGHT) {
       ball_dir_x = -ball_dir_x;
       new_x += ball_dir_x + ball_dir_x;
     }
 
-    // 如果球撞到玩家的拍子上
+    // 如果球撞到master玩家的拍子上
     if (new_x == PLAYER_X
         && new_y >= player_y
         && new_y <= player_y + PADDLE_HEIGHT)
@@ -280,7 +271,7 @@ void SinglePlayer() {
   if (time > paddle_update) {
     paddle_update += PADDLE_RATE;
 
-    // CPU paddle
+    // 本机控制的球拍
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, BLACK);
     const uint8_t half_paddle = PADDLE_HEIGHT >> 1;
     if (up_state) {
@@ -295,7 +286,7 @@ void SinglePlayer() {
     slavepad = cpu_y;
     display.drawFastVLine(CPU_X, cpu_y, PADDLE_HEIGHT, WHITE);
 
-    // Player paddle
+    // master机控制的球拍
     display.drawFastVLine(PLAYER_X, player_y, PADDLE_HEIGHT, BLACK);
     player_y = masterpad;
     up_state = down_state = false;
@@ -361,21 +352,17 @@ void UDPgetstart() {
     //收到Udp数据包
     //Udp.remoteIP().toString().c_str()用于将获取的远端IP地址转化为字符串
     //  Serial.printf("收到来自远程IP：%s（远程端口：%d）的数据包字节数：%d\n", Udp.remoteIP().toString().c_str(), Udp.remotePort(), packetSize);
-
     // 读取Udp数据包并存放在startmessage
     int len = Udp.read(startmessage, 5);//返回数据包字节数
     if (len > 0)
     {
       startmessage[len] = 0;//清空缓存
       //   Serial.printf("UDP数据包内容为: %s\n", startmessage);//向串口打印信息
-
       //strcmp函数是string compare(字符串比较)的缩写，用于比较两个字符串并根据比较结果返回整数。
       //基本形式为strcmp(str1,str2)，若str1=str2，则返回零；若str1<str2，则返回负数；若str1>str2，则返回正数。
-
       if (strcmp(startmessage, "start") == 0) // 收到开始游戏的信息
       {
         startflag = 1; // 开始游戏标志位置1
-
       }
       else
       {
